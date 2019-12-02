@@ -101,11 +101,21 @@ def histogram(contents, savename=""):
     plt.savefig(savename)
     plt.close()
 
-def training(sess, saver, neuralnet, dataset, epochs, batch_size, normalize=True):
+def train_step(model, x, train=True):
+
+    with tf.GradientTape() as tape:
+        z, z_mu, z_sigma = model.encoder(x)
+        x_hat = model.decoder(z)
+        loss, mean_restore, mean_kld = model.loss(x, x_hat, z_mu, z_sigma)
+    if(train):
+        grads = tape.gradient(loss, model.params_trainable)
+        model.optimizer.apply_gradients(zip(grads, model.params_trainable) )
+
+    return z, x_hat, loss, mean_restore, mean_kld
+
+def training(neuralnet, dataset, epochs, batch_size, normalize=True):
 
     print("\nTraining to %d epochs (%d of minibatch size)" %(epochs, batch_size))
-
-    summary_writer = tf.compat.v1.summary.FileWriter(PACK_PATH+'/Checkpoint', sess.graph)
 
     make_dir(path="results")
     result_list = ["tr_latent", "tr_resotring", "tr_latent_walk"]
@@ -114,16 +124,13 @@ def training(sess, saver, neuralnet, dataset, epochs, batch_size, normalize=True
     start_time = time.time()
     iteration = 0
 
-    run_options = tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE)
-    run_metadata = tf.compat.v1.RunMetadata()
-
     test_sq = 20
     test_size = test_sq**2
     for epoch in range(epochs):
 
         x_tr, y_tr, _ = dataset.next_train(batch_size=test_size, fix=True) # Initial batch
-        x_restore, z_enc = sess.run([neuralnet.x_hat, neuralnet.z_enc], \
-            feed_dict={neuralnet.x:x_tr, neuralnet.batch_size:x_tr.shape[0]})
+        z_enc, x_restore, loss, restore_loss, kld = \
+            train_step(model=neuralnet, x=x_tr, train=False)
 
         if(neuralnet.z_dim == 2):
             latent_plot(latent=z_enc, y=y_tr, n=dataset.num_class, \
@@ -147,33 +154,22 @@ def training(sess, saver, neuralnet, dataset, epochs, batch_size, normalize=True
                     z_latent = np.reshape(np.array([y_val, x_val]), (1, neuralnet.z_dim))
                     if(z_latents is None): z_latents = z_latent
                     else: z_latents = np.append(z_latents, z_latent, axis=0)
-            x_samples = sess.run(neuralnet.x_sample, \
-                feed_dict={neuralnet.z:z_latents, neuralnet.batch_size:z_latents.shape[0]})
+            x_samples = neuralnet.decoder(z_latents)
             plt.imsave(os.path.join("results", "tr_latent_walk", "%08d.png" %(epoch)), dat2canvas(data=x_samples))
 
         while(True):
             x_tr, y_tr, terminator = dataset.next_train(batch_size) # y_tr does not used in this prj.
 
-            _, summaries = sess.run([neuralnet.optimizer, neuralnet.summaries], \
-                feed_dict={neuralnet.x:x_tr, neuralnet.batch_size:x_tr.shape[0]}, \
-                options=run_options, run_metadata=run_metadata)
-            restore_loss, kld, loss = sess.run([neuralnet.mean_restore, neuralnet.mean_kld, neuralnet.loss], \
-                feed_dict={neuralnet.x:x_tr, neuralnet.batch_size:x_tr.shape[0]})
-            summary_writer.add_summary(summaries, iteration)
+            z_enc, x_restore, loss, restore_loss, kld  = \
+                train_step(model=neuralnet, x=x_tr)
 
             iteration += 1
             if(terminator): break
 
         print("Epoch [%d / %d] (%d iteration)  Restore:%.3f, KLD:%.3f, Total:%.3f" \
             %(epoch, epochs, iteration, restore_loss, kld, loss))
-        saver.save(sess, PACK_PATH+"/Checkpoint/model_checker")
-        summary_writer.add_run_metadata(run_metadata, 'epoch-%d' % epoch)
 
-def test(sess, saver, neuralnet, dataset, batch_size):
-
-    if(os.path.exists(PACK_PATH+"/Checkpoint/model_checker.index")):
-        print("\nRestoring parameters")
-        saver.restore(sess, PACK_PATH+"/Checkpoint/model_checker")
+def test(neuralnet, dataset, batch_size):
 
     print("\nTest...")
 
@@ -185,8 +181,9 @@ def test(sess, saver, neuralnet, dataset, batch_size):
     while(True):
         x_te, y_te, terminator = dataset.next_test(1) # y_te does not used in this prj.
 
-        score_anomaly = sess.run(neuralnet.mse_r, \
-            feed_dict={neuralnet.x:x_te, neuralnet.batch_size:x_te.shape[0]})
+        z_enc, _, _ = neuralnet.encoder(x_te)
+        x_restore = neuralnet.decoder(z_enc)
+        score_anomaly = neuralnet.mean_square_error(x_te, x_restore)
         if(y_te == 1): scores_normal.append(score_anomaly)
         else: scores_abnormal.append(score_anomaly)
 
@@ -211,8 +208,9 @@ def test(sess, saver, neuralnet, dataset, batch_size):
     while(True):
         x_te, y_te, terminator = dataset.next_test(1) # y_te does not used in this prj.
 
-        x_restore, z_enc, restore_loss = sess.run([neuralnet.x_hat, neuralnet.z_enc, neuralnet.mse_r], \
-            feed_dict={neuralnet.x:x_te, neuralnet.batch_size:x_te.shape[0]})
+        z_enc, _, _ = neuralnet.encoder(x_te)
+        x_restore = neuralnet.decoder(z_enc)
+        score_anomaly = neuralnet.mean_square_error(x_te, x_restore)
 
         loss4box[y_te[0]].append(restore_loss)
 

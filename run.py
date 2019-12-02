@@ -11,14 +11,12 @@ import source.tf_process as tfp
 
 def main():
 
-    # dataset = dman.Dataset(normalize=FLAGS.datnorm)
-    # neuralnet = nn.CVAE(height=dataset.height, width=dataset.width, channel=dataset.channel, \
-    #     z_dim=FLAGS.z_dim, leaning_rate=FLAGS.lr)
-    neuralnet = nn.CVAE(height=28, width=28, channel=1, \
+    dataset = dman.Dataset(normalize=FLAGS.datnorm)
+    neuralnet = nn.CVAE(height=dataset.height, width=dataset.width, channel=dataset.channel, \
         ksize=FLAGS.ksize, z_dim=FLAGS.z_dim, leaning_rate=FLAGS.lr)
 
-    # tfp.training(sess=sess, neuralnet=neuralnet, saver=saver, dataset=dataset, epochs=FLAGS.epoch, batch_size=FLAGS.batch, normalize=True)
-    # tfp.test(sess=sess, neuralnet=neuralnet, saver=saver, dataset=dataset, batch_size=FLAGS.batch)
+    tfp.training(neuralnet=neuralnet, dataset=dataset, epochs=FLAGS.epoch, batch_size=FLAGS.batch)
+    tfp.test(neuralnet=neuralnet, dataset=dataset, batch_size=FLAGS.batch)
 
 if __name__ == '__main__':
 
