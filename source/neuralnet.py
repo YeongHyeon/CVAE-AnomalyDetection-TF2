@@ -121,19 +121,21 @@ class CVAE(object):
     def get_weight(self, vshape, name):
 
         try:
-            var_idx = self.name_bank.index(name)
+            idx_w = self.name_bank.index("%s_w" %(name))
+            idx_b = self.name_bank.index("%s_b" %(name))
         except:
             w = tf.Variable(self.initializer(vshape), \
                 name=name, trainable=True, dtype=tf.float32)
             b = tf.Variable(self.initializer([vshape[-1]]), \
                 name=name, trainable=True, dtype=tf.float32)
 
-            self.name_bank.append(name)
-            self.var_bank.append([w, b])
+            self.name_bank.append("%s_w" %(name))
             self.params_trainable.append(w)
+            self.name_bank.append("%s_b" %(name))
             self.params_trainable.append(b)
         else:
-            [w, b] = self.var_bank[var_idx]
+            w = self.params_trainable[idx_w]
+            b = self.params_trainable[idx_b]
 
         if(self.verbose): print(name, w.shape)
         return w, b

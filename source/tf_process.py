@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
 PACK_PATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))+"/.."
+checkpoint_directory = PACK_PATH+'/Checkpoint'
 
 def make_dir(path):
 
@@ -113,13 +114,33 @@ def train_step(model, x, train=True):
 
     return z, x_hat, loss, mean_restore, mean_kld
 
+def save_parameter(model, directory):
+
+    vars_to_save = {}
+    for idx, name in enumerate(model.name_bank):
+        vars_to_save[model.name_bank[idx]] = model.params_trainable[idx]
+    vars_to_save["optimizer"] = model.optimizer
+
+    checkpoint = tf.train.Checkpoint(**vars_to_save)
+    saver = tf.train.CheckpointManager(checkpoint, directory=directory, max_to_keep=3)
+    saver.save()
+
+def load_parameter(model, directory):
+
+    vars_to_load = {}
+    for idx, name in enumerate(model.name_bank):
+        vars_to_load[model.name_bank[idx]] = model.params_trainable[idx]
+    vars_to_load["optimizer"] = model.optimizer
+
+    checkpoint = tf.train.Checkpoint(**vars_to_load)
+    latest_ckpt = tf.train.latest_checkpoint(directory)
+    checkpoint.restore(latest_ckpt)
+
 def training(neuralnet, dataset, epochs, batch_size, normalize=True):
 
     print("\nTraining to %d epochs (%d of minibatch size)" %(epochs, batch_size))
-
-    checkpoint_directory = PACK_PATH+'/Checkpoint'
     summary_writer = tf.summary.create_file_writer(checkpoint_directory)
-    
+
     make_dir(path="results")
     result_list = ["tr_latent", "tr_resotring", "tr_latent_walk"]
     for result_name in result_list: make_dir(path=os.path.join("results", result_name))
@@ -171,6 +192,8 @@ def training(neuralnet, dataset, epochs, batch_size, normalize=True):
                 tf.summary.scalar('CVAE/kld', kld, step=iteration)
                 tf.summary.scalar('CVAE/tot_loss', loss, step=iteration)
 
+                save_parameter(model=neuralnet, directory=checkpoint_directory)
+
             iteration += 1
             if(terminator): break
 
@@ -180,6 +203,7 @@ def training(neuralnet, dataset, epochs, batch_size, normalize=True):
 def test(neuralnet, dataset, batch_size):
 
     print("\nTest...")
+    load_parameter(model=neuralnet, directory=checkpoint_directory)
 
     make_dir(path="test")
     result_list = ["inbound", "outbound"]
