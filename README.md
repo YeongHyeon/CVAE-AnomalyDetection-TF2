@@ -1,4 +1,4 @@
-Anomaly Detection using Convolutional Variational Auto-Encoder (CVAE)
+[TensorFlow 2.0] Anomaly Detection using Convolutional Variational Auto-Encoder (CVAE)
 =====
 
 Example of Anomaly Detection using Convolutional Variational Auto-Encoder (CVAE) [<a href="https://github.com/YeongHyeon/CVAE">Related repository</a>] [<a href="https://github.com/YeongHyeon/CVAE-AnomalyDetection-Torch">PyTorch Version</a>].
