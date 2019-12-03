@@ -117,6 +117,9 @@ def training(neuralnet, dataset, epochs, batch_size, normalize=True):
 
     print("\nTraining to %d epochs (%d of minibatch size)" %(epochs, batch_size))
 
+    checkpoint_directory = PACK_PATH+'/Checkpoint'
+    summary_writer = tf.summary.create_file_writer(checkpoint_directory)
+    
     make_dir(path="results")
     result_list = ["tr_latent", "tr_resotring", "tr_latent_walk"]
     for result_name in result_list: make_dir(path=os.path.join("results", result_name))
@@ -162,6 +165,11 @@ def training(neuralnet, dataset, epochs, batch_size, normalize=True):
 
             z_enc, x_restore, loss, restore_loss, kld  = \
                 train_step(model=neuralnet, x=x_tr)
+
+            with summary_writer.as_default():
+                tf.summary.scalar('CVAE/restore_loss', restore_loss, step=iteration)
+                tf.summary.scalar('CVAE/kld', kld, step=iteration)
+                tf.summary.scalar('CVAE/tot_loss', loss, step=iteration)
 
             iteration += 1
             if(terminator): break
@@ -210,7 +218,7 @@ def test(neuralnet, dataset, batch_size):
 
         z_enc, _, _ = neuralnet.encoder(x_te)
         x_restore = neuralnet.decoder(z_enc)
-        score_anomaly = neuralnet.mean_square_error(x_te, x_restore)
+        restore_loss = neuralnet.mean_square_error(x_te, x_restore)
 
         loss4box[y_te[0]].append(restore_loss)
 
