@@ -110,7 +110,7 @@ def train_step(model, x, train=True):
         loss, mean_restore, mean_kld = model.loss(x, x_hat, z_mu, z_sigma)
     if(train):
         grads = tape.gradient(loss, model.params_trainable)
-        model.optimizer.apply_gradients(zip(grads, model.params_trainable) )
+        model.optimizer.apply_gradients(zip(grads, model.params_trainable))
 
     return z, x_hat, loss, mean_restore, mean_kld
 
@@ -192,7 +192,7 @@ def training(neuralnet, dataset, epochs, batch_size, normalize=True):
                 tf.summary.scalar('CVAE/kld', kld, step=iteration)
                 tf.summary.scalar('CVAE/tot_loss', loss, step=iteration)
 
-                save_parameter(model=neuralnet, directory=checkpoint_directory)
+            save_parameter(model=neuralnet, directory=checkpoint_directory)
 
             iteration += 1
             if(terminator): break
