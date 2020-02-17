@@ -10,6 +10,9 @@ import source.neuralnet as nn
 import source.tf_process as tfp
 
 def main():
+    
+    physical_devices = tf.config.list_physical_devices('GPU') 
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     dataset = dman.Dataset(normalize=FLAGS.datnorm)
     neuralnet = nn.CVAE(height=dataset.height, width=dataset.width, channel=dataset.channel, \
